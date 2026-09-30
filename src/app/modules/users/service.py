@@ -2,6 +2,7 @@
 
 from collections.abc import Sequence
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ConflictError
@@ -9,6 +10,8 @@ from app.core.security import hash_password
 from app.modules.users.models import User
 from app.modules.users.repository import UserRepository
 from app.modules.users.schemas import UserCreate, UserUpdate
+
+EMAIL_TAKEN = "Un compte existe déjà avec cet email."
 
 
 def normalize_email(email: str) -> str:
@@ -34,7 +37,7 @@ class UserService:
     async def create(self, data: UserCreate, *, is_superuser: bool = False) -> User:
         email = normalize_email(data.email)
         if await self.repository.get_by_email(email) is not None:
-            raise ConflictError("Un compte existe déjà avec cet email.")
+            raise ConflictError(EMAIL_TAKEN)
         user = User(
             email=email,
             hashed_password=hash_password(data.password.get_secret_value()),
@@ -42,7 +45,13 @@ class UserService:
             is_superuser=is_superuser,
         )
         self.repository.add(user)
-        await self.session.commit()
+        try:
+            await self.session.commit()
+        except IntegrityError as exc:
+            # La vérification ci-dessus ne suffit pas : deux inscriptions simultanées
+            # peuvent la passer toutes les deux. L'index unique de la base tranche.
+            await self.session.rollback()
+            raise ConflictError(EMAIL_TAKEN) from exc
         await self.session.refresh(user)
         return user
 

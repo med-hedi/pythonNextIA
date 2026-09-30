@@ -1,22 +1,34 @@
 """Schémas Pydantic des utilisateurs.
 
 Le mot de passe est un `SecretStr` : il n'apparaît jamais en clair dans un
-`repr()`, un log ou un message d'erreur de validation.
+`repr()`, un log ou un message d'erreur de validation. Il n'est jamais rogné :
+les espaces font partie du secret, et `/auth/token` le compare tel quel. C'est
+pourquoi le rognage (`strip_whitespace`) est déclaré champ par champ plutôt que
+via `str_strip_whitespace` dans `model_config`, qui s'appliquerait aussi à `SecretStr`.
 """
 
 from datetime import datetime
 from typing import Annotated, Self
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, SecretStr, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    Field,
+    SecretStr,
+    StringConstraints,
+    model_validator,
+)
 
 Password = Annotated[SecretStr, Field(min_length=8, max_length=128)]
-FullName = Annotated[str | None, Field(max_length=100)]
+Email = Annotated[EmailStr, StringConstraints(strip_whitespace=True)]
+FullName = Annotated[str | None, StringConstraints(strip_whitespace=True, max_length=100)]
 
 
 class UserCreate(BaseModel):
-    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+    model_config = ConfigDict(extra="forbid")
 
-    email: EmailStr
+    email: Email
     password: Password
     full_name: FullName = None
 
@@ -24,7 +36,7 @@ class UserCreate(BaseModel):
 class UserUpdate(BaseModel):
     """Modification de son propre profil (PATCH /users/me)."""
 
-    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+    model_config = ConfigDict(extra="forbid")
 
     full_name: FullName = None
     password: Password | None = None

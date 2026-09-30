@@ -6,6 +6,7 @@ from httpx import AsyncClient
 from pwdlib.hashers.argon2 import Argon2Hasher
 
 from app.modules.users.models import User
+from app.modules.users.repository import UserRepository
 from tests.conftest import PASSWORD, create_user, login
 
 REGISTER_URL = "/api/v1/auth/register"
@@ -33,6 +34,43 @@ async def test_register_with_existing_email_returns_409(client: AsyncClient, use
     )
 
     assert response.status_code == 409
+
+
+async def test_register_race_on_email_returns_409(
+    client: AsyncClient, user: User, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Deux inscriptions simultanées : la seconde passe la vérification applicative.
+
+    On simule la course en masquant l'utilisateur existant à `get_by_email` :
+    c'est alors l'index unique de la base qui doit produire le 409.
+    """
+
+    async def not_found(self: UserRepository, email: str) -> None:
+        return None
+
+    monkeypatch.setattr(UserRepository, "get_by_email", not_found)
+
+    response = await client.post(REGISTER_URL, json={"email": user.email, "password": PASSWORD})
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "conflict"
+
+
+async def test_register_keeps_whitespace_in_password(client: AsyncClient) -> None:
+    password = "  spaced password  "
+    response = await client.post(
+        REGISTER_URL,
+        json={"email": " spaced@example.com ", "password": password, "full_name": "  Ada  "},
+    )
+    assert response.status_code == 201
+    assert response.json()["email"] == "spaced@example.com"
+    assert response.json()["full_name"] == "Ada"
+
+    await login(client, "spaced@example.com", password)
+    stripped = await client.post(
+        TOKEN_URL, data={"username": "spaced@example.com", "password": password.strip()}
+    )
+    assert stripped.status_code == 401
 
 
 @pytest.mark.parametrize(
