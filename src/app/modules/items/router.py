@@ -6,10 +6,14 @@ from fastapi import APIRouter, Depends, status
 
 from app.api.deps import PaginationDep, SessionDep
 from app.core.pagination import Page
+from app.modules.auth.dependencies import get_current_user
 from app.modules.items.schemas import ItemCreate, ItemRead, ItemUpdate
 from app.modules.items.service import ItemService
 
 router = APIRouter(prefix="/items", tags=["items"])
+
+# Lecture publique ; création, modification et suppression réservées aux utilisateurs connectés.
+AUTHENTICATED = [Depends(get_current_user)]
 
 
 def get_item_service(session: SessionDep) -> ItemService:
@@ -30,7 +34,12 @@ async def list_items(service: ItemServiceDep, pagination: PaginationDep) -> Page
     )
 
 
-@router.post("", status_code=status.HTTP_201_CREATED, summary="Créer un item")
+@router.post(
+    "",
+    status_code=status.HTTP_201_CREATED,
+    summary="Créer un item",
+    dependencies=AUTHENTICATED,
+)
 async def create_item(service: ItemServiceDep, data: ItemCreate) -> ItemRead:
     return ItemRead.model_validate(await service.create(data))
 
@@ -40,11 +49,16 @@ async def get_item(service: ItemServiceDep, item_id: int) -> ItemRead:
     return ItemRead.model_validate(await service.get(item_id))
 
 
-@router.patch("/{item_id}", summary="Modifier partiellement un item")
+@router.patch("/{item_id}", summary="Modifier partiellement un item", dependencies=AUTHENTICATED)
 async def update_item(service: ItemServiceDep, item_id: int, data: ItemUpdate) -> ItemRead:
     return ItemRead.model_validate(await service.update(item_id, data))
 
 
-@router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Supprimer un item")
+@router.delete(
+    "/{item_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Supprimer un item",
+    dependencies=AUTHENTICATED,
+)
 async def delete_item(service: ItemServiceDep, item_id: int) -> None:
     await service.delete(item_id)

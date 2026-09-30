@@ -8,6 +8,8 @@ services:
     environment:
       APP_ENVIRONMENT: local
       APP_DATABASE_URL: postgresql+asyncpg://app:app@db:5432/app
+      # Uniquement pour le local ! En production, injecter un vrai secret.
+      APP_JWT_SECRET_KEY: ${APP_JWT_SECRET_KEY:-local-dev-secret-not-for-production-0000}
     # Les migrations sont appliquées avant le démarrage du serveur.
     command: sh -c "alembic upgrade head && uvicorn app.main:create_app --factory --host 0.0.0.0 --port 8000"
     depends_on:

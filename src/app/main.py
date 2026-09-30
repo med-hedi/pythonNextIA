@@ -61,6 +61,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     register_exception_handlers(app)
     app.include_router(health_router)
-    app.include_router(api_router, prefix=settings.api_v1_prefix)
+    app.include_router(api_router)
 
     return app

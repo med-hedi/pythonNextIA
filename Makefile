@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help install dev test cov lint format typecheck check migrate migration docker-up docker-down clean
+.PHONY: help install dev test cov lint format typecheck check migrate migration superuser docker-up docker-down clean
 
 help: ## Affiche cette aide
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
@@ -35,6 +35,9 @@ migrate: ## Applique les migrations
 
 migration: ## Crée une migration : make migration m="add users table"
 	uv run alembic revision --autogenerate -m "$(m)"
+
+superuser: ## Crée un administrateur : make superuser email=admin@example.com
+	uv run python -m app.cli create-superuser --email "$(email)"
 
 docker-up: ## Démarre l'API + PostgreSQL avec Docker
 	docker compose up --build -d

@@ -6,5 +6,6 @@ pensez à y ajouter chaque nouveau modèle.
 
 from app.db.base import Base
 from app.modules.items.models import Item
+from app.modules.users.models import User
 
-__all__ = ["Base", "Item"]
+__all__ = ["Base", "Item", "User"]
